@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>投稿 - Class Note</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="container">
+    <h1>ノートを投稿</h1>
+    <form id="postForm" class="card" style="max-width:640px">
+      <label>タイトル<input id="title" required></label>
+      <label>カテゴリ
+        <select id="category">
+          <option value="共通教育">共通教育</option>
+          <option value="専門応用">専門応用</option>
+        </select>
+      </label>
+      <label>本文<textarea id="body" rows="8" required></textarea></label>
+      <button type="submit" class="btn primary">保存</button>
+      <a class="btn" href="index.html">戻る</a>
+    </form>
+    </main>
+  <script>
+  document.getElementById('postForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    // (1) 送信するデータ（ペイロード）を作成
+    const payload = {
+      title: document.getElementById('title').value,
+      category: document.getElementById('category').value,
+      body: document.getElementById('body').value,
+      createdAt: new Date().toISOString()
+    };
+
+    // (2) fetch APIを使ってサーバーの 'save.php' にデータをPOSTする
+    fetch('save.php', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    })
+    .then(response => {
+      // ネットワークやサーバーのレスポンスがOKか確認
+      if (!response.ok) {
+        throw new Error('サーバーとの通信に失敗しました: ' + response.statusText);
+      }
+      return response.json(); // サーバーからのJSONレスポンスを解析
+    })
+    .then(data => {
+      // (3) サーバーからの応答が 'success' だったら成功
+      if (data.status === 'success') {
+        alert('保存しました');
+        location.href = 'index.html'; // index.htmlに戻る
+      } else {
+        alert('保存に失敗しました: ' + (data.message || '不明なエラー'));
+      }
+    })
+    .catch(error => {
+      // (4) 通信エラーやその他のエラーをキャッチ
+      console.error('Error:', error);
+      alert('保存中にエラーが発生しました。\n' + error.message);
+    });
+  });
+  </script>
+</body>
+</html>

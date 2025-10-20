@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Class Note</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="header">
+    <h1>Class Note</h1>
+    <nav class="actions">
+      <a class="btn" href="post.html">投稿</a>
+      <a class="btn" href="login.php">ログイン</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="search">
+      <label class="icon" for="q">🔍️</label>
+      <input id="q" type="text" placeholder="キーワードを入力" />
+      <select id="category">
+        <option value="">すべて</option>
+        <option value="共通教育">共通教育</option>
+        <option value="専門応用">専門応用</option>
+      </select>
+      <button id="searchBtn" class="btn primary">検索</button>
+    </section>
+
+    <section id="results" class="results" aria-live="polite">
+      <!-- 検索結果がここに表示されます -->
+    </section>
+  </main>
+
+  <footer class="footer">
+    <small>&copy; 2025 Class Note</small>
+  </footer>
+
+  <script src="scripts.js"></script>
+</body>
+</html>
