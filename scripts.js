@@ -10,8 +10,8 @@ const sample = [
 async function loadNotes() {
   let serverNotes = [];
   try {
-    // (1) サーバーから notes.json を fetch で取得
-    const response = await fetch('notes.json');
+    // (1) サーバーから get_notes.php を fetch で取得（id欠落の自動付与も実施）
+    const response = await fetch('get_notes.php');
     if (response.ok) {
       serverNotes = await response.json();
     }
@@ -23,7 +23,7 @@ async function loadNotes() {
   // (2) サーバーのノートとサンプルデータを結合
   // サーバーのノートは 'body'、サンプルは 'desc' を持っているため、両対応
   const allData = [
-    ...serverNotes.map(n => ({ ...n, desc: n.body.split('\n')[0] })),
+    ...serverNotes.map(n => ({ ...n, desc: (n.body ?? '').split('\n')[0] })),
     ...sample
   ];
   return allData;
@@ -38,7 +38,19 @@ function render(items) {
     const el = document.createElement('article');
     el.className = 'card';
     // desc が未定義の場合も考慮
-    el.innerHTML = `<h3>${it.title}</h3><p>${it.category}</p><p>${it.desc ?? ''}</p>`;
+    if (it.id) {
+      // クリック範囲を明確にするため、カード内をアンカーでラップ
+      el.classList.add('clickable');
+      el.dataset.id = it.id;
+      const a = document.createElement('a');
+      a.href = `gallery.php?id=${encodeURIComponent(it.id)}`;
+      a.className = 'card-link';
+      a.innerHTML = `<h3>${it.title}</h3><p>${it.category}</p><p>${it.desc ?? ''}</p>`;
+      el.appendChild(a);
+    } else {
+      // サンプルなどidが無いものは非クリック
+      el.innerHTML = `<h3>${it.title}</h3><p>${it.category}</p><p>${it.desc ?? ''}</p>`;
+    }
     root.appendChild(el);
   }
 }

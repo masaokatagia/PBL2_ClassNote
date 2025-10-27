@@ -9,6 +9,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 // データを保存するファイル名
 $filename = 'notes.json';
 
+function generate_id() {
+    try {
+        return bin2hex(random_bytes(12)); // 24桁のhex
+    } catch (Exception $e) {
+        return md5(uniqid('', true));
+    }
+}
+
 // (1) クライアントから送信されたJSONデータを取得
 $input = file_get_contents('php://input');
 $newNote = json_decode($input, true);
@@ -31,7 +39,20 @@ if (file_exists($filename)) {
     }
 }
 
-// (3) 新しいノートを配列に追加
+// 既存データのマイグレーション: idが無いものに付与
+$dirty = false;
+foreach ($notes as $i => $note) {
+    if (!is_array($note)) continue;
+    if (!array_key_exists('id', $note) || empty($note['id'])) {
+        $notes[$i]['id'] = generate_id();
+        $dirty = true;
+    }
+}
+
+// (3) 新しいノートにidを付与して配列に追加
+if (!array_key_exists('id', $newNote) || empty($newNote['id'])) {
+    $newNote['id'] = generate_id();
+}
 $notes[] = $newNote;
 
 // (4) 配列全体をJSONファイルに書き戻す
@@ -41,5 +62,5 @@ file_put_contents($filename, json_encode($notes, JSON_UNESCAPED_UNICODE | JSON_P
 
 // (5) クライアントに成功レスポンスを返す
 header('Content-Type: application/json');
-echo json_encode(['status' => 'success', 'message' => '保存しました']);
+echo json_encode(['status' => 'success', 'message' => '保存しました', 'id' => $newNote['id']]);
 ?>

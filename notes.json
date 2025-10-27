@@ -1,8 +1,30 @@
 [
     {
+        "id": "ab12cd34ef56ab12cd34ef56",
         "title": "あああ",
         "category": "共通教育",
         "body": "あｓｄｗ",
         "createdAt": "2025-10-20T02:20:45.716Z"
+    },
+    {
+        "id": "d3adb33fd3adb33fd3adb33f",
+        "title": "応用数学２（ダミー）",
+        "category": "共通教育",
+        "body": "微分方程式の解法と応用のダミーノートです。\n1. 線形常微分方程式\n2. べき級数解法",
+        "createdAt": "2025-10-27T00:00:00.000Z"
+    },
+    {
+        "id": "cafebabecafebabecafebabe",
+        "title": "PBL演習（ダミー）",
+        "category": "専門応用",
+        "body": "チーム開発の基礎ダミーノート。\nアジャイル、Git、課題管理。",
+        "createdAt": "2025-10-27T00:00:01.000Z"
+    },
+    {
+        "id": "facec0defacec0defacec0de",
+        "title": "統計数学（ダミー）",
+        "category": "専門応用",
+        "body": "仮説検定からt検定までのダミーノート。\n分布、推定、検定。",
+        "createdAt": "2025-10-27T00:00:02.000Z"
     }
 ]
