@@ -1,10 +1,4 @@
 // サンプルデータはそのまま残します
-const sample = [
-  { title: '応用数学２', category: '共通教育', desc: '微分方程式の解法と応用' },
-  { title: 'PBL演習', category: '専門応用', desc: 'チーム開発の基礎' },
-  { title: '統計数学', category: '専門応用', desc: '仮説検定とt検定まで' },
-  { title: 'ソフトウェア工学', category: '共通教育', desc: '要求定義と設計手法' },
-];
 
 // データを読み込む非同期関数
 async function loadNotes() {

@@ -18,6 +18,10 @@
         </select>
       </label>
       <label>本文<textarea id="body" rows="8" required></textarea></label>
+
+      <label>画像 (複数選択可)
+        <input id="images" type="file" name="images[]" multiple accept="image/*" />
+      </label>
       <button type="submit" class="btn primary">保存</button>
       <a class="btn" href="index.html">戻る</a>
     </form>
@@ -26,21 +30,27 @@
   document.getElementById('postForm').addEventListener('submit', (e) => {
     e.preventDefault();
 
-    // (1) 送信するデータ（ペイロード）を作成
-    const payload = {
-      title: document.getElementById('title').value,
-      category: document.getElementById('category').value,
-      body: document.getElementById('body').value,
-      createdAt: new Date().toISOString()
-    };
+    // (1) FormDataオブジェクトを作成
+    const formData = new FormData();
 
-    // (2) fetch APIを使ってサーバーの 'save.php' にデータをPOSTする
+    // (2) テキストデータをFormDataに追加
+    formData.append('title', document.getElementById('title').value);
+    formData.append('category', document.getElementById('category').value);
+    formData.append('body', document.getElementById('body').value);
+    formData.append('createdAt', new Date().toISOString());
+
+    // (3) 選択された画像ファイル（複数）をFormDataに追加
+    const imageFiles = document.getElementById('images').files;
+    for (let i = 0; i < imageFiles.length; i++) {
+      // name="images[]" と合わせる (HTML側で設定済みだがJSでも明示)
+      formData.append('images[]', imageFiles[i]);
+    }
+
+    // (4) fetch APIを使ってサーバーの 'save.php' にデータをPOSTする
     fetch('save.php', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload)
+      // headers は FormData の場合は不要
+      body: formData 
     })
     .then(response => {
       // ネットワークやサーバーのレスポンスがOKか確認
@@ -52,7 +62,7 @@
     .then(data => {
       // (3) サーバーからの応答が 'success' だったら成功
       if (data.status === 'success') {
-        alert('保存しました');
+        alert(data.message || '保存しました'); // サーバーからのメッセージを表示
         location.href = 'index.html'; // index.htmlに戻る
       } else {
         alert('保存に失敗しました: ' + (data.message || '不明なエラー'));

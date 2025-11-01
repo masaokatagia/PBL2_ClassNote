@@ -8,6 +8,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 // データを保存するファイル名
 $filename = 'notes.json';
+// 画像を保存するベースディレクトリ
+$baseUploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'Resources';
 
 function generate_id() {
     try {
@@ -17,14 +19,15 @@ function generate_id() {
     }
 }
 
-// (1) クライアントから送信されたJSONデータを取得
-$input = file_get_contents('php://input');
-$newNote = json_decode($input, true);
+// (1) クライアントから送信されたテキストデータを取得
+$title = $_POST['title'] ?? '';
+$category = $_POST['category'] ?? 'カテゴリ未設定';
+$body = $_POST['body'] ?? '';
+$createdAt = $_POST['createdAt'] ?? (new DateTime())->format(DateTime::ATOM);
 
-// JSONとして不正な場合はエラー
-if ($newNote === null) {
-    http_response_code(400); // Bad Request
-    echo json_encode(['status' => 'error', 'message' => '無効なJSONデータです']);
+if (empty($title) || empty($body)) {
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'message' => 'タイトルと本文は必須です']);
     exit;
 }
 
@@ -34,12 +37,11 @@ if (file_exists($filename)) {
     $currentData = file_get_contents($filename);
     $notes = json_decode($currentData, true);
     if ($notes === null) {
-        // 既存ファイルが壊れている場合は空にする
         $notes = [];
     }
 }
 
-// 既存データのマイグレーション: idが無いものに付与
+// 既存データのマイグレーション
 $dirty = false;
 foreach ($notes as $i => $note) {
     if (!is_array($note)) continue;
@@ -49,18 +51,121 @@ foreach ($notes as $i => $note) {
     }
 }
 
-// (3) 新しいノートにidを付与して配列に追加
-if (!array_key_exists('id', $newNote) || empty($newNote['id'])) {
-    $newNote['id'] = generate_id();
-}
+// (3) 新しいノートのオブジェクトを作成し、先にIDを生成
+$newNoteId = generate_id();
+$newNote = [
+    'id' => $newNoteId,
+    'title' => $title,
+    'category' => $category,
+    'body' => $body,
+    'createdAt' => $createdAt
+];
+
+// 配列に追加
 $notes[] = $newNote;
 
 // (4) 配列全体をJSONファイルに書き戻す
-// JSON_UNESCAPED_UNICODE: 日本語が \uXXXX のようにエスケープされるのを防ぐ
-// JSON_PRETTY_PRINT: 開発用にファイルを読みやすく整形する (本番では不要)
-file_put_contents($filename, json_encode($notes, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+// ▼▼▼ [変更] 書き込みチェックを追加 ▼▼▼
+$bytesWritten = file_put_contents($filename, json_encode($notes, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
-// (5) クライアントに成功レスポンスを返す
-header('Content-Type: application/json');
-echo json_encode(['status' => 'success', 'message' => '保存しました', 'id' => $newNote['id']]);
+if ($bytesWritten === false) {
+    // JSONファイルへの書き込みに失敗した場合、ここで処理を停止する
+    http_response_code(500);
+    echo json_encode([
+        'status' => 'error', 
+        'message' => 'エラー: ' . $filename . ' への書き込みに失敗しました。ファイルのパーミッション（属性）を 666 に変更してください。'
+    ]);
+    exit; // これ以降の画像処理は実行しない
+}
+// ▲▲▲ [変更] ここまで ▲▲▲
+
+
+// (5) [新機能] 画像アップロード処理
+$uploadErrors = [];
+$uploadedFilesCount = 0;
+
+// 'Resources' ディレクトリが存在しなければ作成 (パーミッションを0777に設定)
+if (!is_dir($baseUploadDir)) {
+    if (!mkdir($baseUploadDir, 0777, true)) {
+        http_response_code(500);
+        echo json_encode(['status' => 'error', 'message' => 'エラー: ' . $baseUploadDir . ' ディレクトリの作成に失敗しました。']);
+        exit;
+    }
+}
+
+// 'Resources' が存在しても書き込めない場合
+if (!is_writable($baseUploadDir)) {
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => 'エラー: ' . $baseUploadDir . ' ディレクトリに書き込み権限がありません (777にしてください)。']);
+    exit;
+}
+
+// ノートID用のディレクトリを作成 (例: Resources/abcdef123456)
+$targetDir = $baseUploadDir . DIRECTORY_SEPARATOR . $newNoteId;
+if (!is_dir($targetDir)) {
+    if (!mkdir($targetDir, 0777, true)) {
+        http_response_code(500);
+        echo json_encode(['status' => 'error', 'message' => 'エラー: ' . $targetDir . ' の作成に失敗しました。']);
+        exit;
+    }
+    @chmod($targetDir, 0777);
+}
+
+// ノートIDディレクトリが書き込めない場合
+if (!is_writable($targetDir)) {
+    http_response_code(500);
+     echo json_encode(['status' => 'error', 'message' => 'エラー: ' . $targetDir . ' に書き込み権限がありません。']);
+     exit;
+}
+
+// gallery.php で許可されている拡張子リスト
+$allowedExtensions = ['jpg','jpeg','png','gif','webp','bmp','svg'];
+
+if (isset($_FILES['images'])) {
+    $files = $_FILES['images'];
+
+    for ($i = 0; $i < count($files['name']); $i++) {
+        $tmpName = $files['tmp_name'][$i];
+        
+        if ($files['error'][$i] !== UPLOAD_ERR_OK) {
+            if ($files['error'][$i] !== UPLOAD_ERR_NO_FILE) {
+                 $uploadErrors[] = "ファイル " . htmlspecialchars($files['name'][$i]) . " のアップロードエラー (コード: " . $files['error'][$i] . ")";
+            }
+            continue;
+        }
+
+        $originalName = $files['name'][$i];
+        $safeName = basename($originalName); 
+        $ext = strtolower(pathinfo($safeName, PATHINFO_EXTENSION));
+
+        if (!in_array($ext, $allowedExtensions, true)) {
+            $uploadErrors[] = "ファイル " . htmlspecialchars($safeName) . " は許可されていない形式です。";
+            continue;
+        }
+
+        $destination = $targetDir . DIRECTORY_SEPARATOR . $safeName;
+        
+        if (move_uploaded_file($tmpName, $destination)) {
+            $uploadedFilesCount++;
+        } else {
+            $uploadErrors[] = "ファイル " . htmlspecialchars($safeName) . " の移動に失敗しました。";
+        }
+    }
+}
+
+// (6) クライアントに成功レスポンスを返す
+header('Content-Type: application/json; charset=utf-8');
+$message = '保存しました。';
+if ($uploadedFilesCount > 0) {
+    $message .= ' 画像 ' . $uploadedFilesCount . ' 件をアップロードしました。';
+}
+if (!empty($uploadErrors)) {
+    $message .= ' いくつかの画像エラーがあります: ' . implode(', ', $uploadErrors);
+}
+
+echo json_encode([
+    'status' => (empty($uploadErrors) || $uploadedFilesCount > 0) ? 'success' : 'error', 
+    'message' => $message, 
+    'id' => $newNoteId
+]);
 ?>
