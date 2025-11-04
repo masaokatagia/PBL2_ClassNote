@@ -4,21 +4,21 @@
 async function loadNotes() {
   let serverNotes = [];
   try {
-    // (1) サーバーから get_notes.php を fetch で取得（id欠落の自動付与も実施）
+    // (1) サーバーから get_notes.php を fetch
     const response = await fetch('get_notes.php');
     if (response.ok) {
-      serverNotes = await response.json();
+      serverNotes = await response.json(); // body と cover を含む
     }
   } catch (e) {
-    // ファイルが存在しない場合(初回起動時など)はコンソールにログを出すだけ
     console.warn('notes.json が見つからないか、読み込めません。');
   }
   
-  // (2) サーバーのノートとサンプルデータを結合
-  // サーバーのノートは 'body'、サンプルは 'desc' を持っているため、両対応
+  // サーバーのノート + サンプルデータ（後方互換で desc を維持）
+  // ▼▼ 追加: sample 未定義でも落ちないようにする ▼▼
+  const fallbackSample = (typeof sample !== 'undefined' && Array.isArray(sample)) ? sample : [];
   const allData = [
-    ...serverNotes.map(n => ({ ...n, desc: (n.body ?? '').split('\n')[0] })),
-    ...sample
+    ...serverNotes,
+    ...fallbackSample
   ];
   return allData;
 }
@@ -31,19 +31,28 @@ function render(items) {
   for (const it of items) {
     const el = document.createElement('article');
     el.className = 'card';
-    // desc が未定義の場合も考慮
     if (it.id) {
-      // クリック範囲を明確にするため、カード内をアンカーでラップ
+      // リンク付きカード
       el.classList.add('clickable');
       el.dataset.id = it.id;
       const a = document.createElement('a');
       a.href = `gallery.php?id=${encodeURIComponent(it.id)}`;
       a.className = 'card-link';
-      a.innerHTML = `<h3>${it.title}</h3><p>${it.category}</p><p>${it.desc ?? ''}</p>`;
+      a.innerHTML = `
+        ${it.cover ? `<img class="thumb" src="${it.cover}" alt="">` : ''}
+        <h3>${it.title}</h3>
+        <p>${it.category}</p>
+        <p>${it.body ?? (it.desc ?? '')}</p>
+      `;
       el.appendChild(a);
     } else {
-      // サンプルなどidが無いものは非クリック
-      el.innerHTML = `<h3>${it.title}</h3><p>${it.category}</p><p>${it.desc ?? ''}</p>`;
+      // サンプル等（非リンク）
+      el.innerHTML = `
+        ${it.cover ? `<img class="thumb" src="${it.cover}" alt="">` : ''}
+        <h3>${it.title}</h3>
+        <p>${it.category}</p>
+        <p>${it.desc ?? ''}</p>
+      `;
     }
     root.appendChild(el);
   }
@@ -57,8 +66,13 @@ async function search() {
   const q = document.getElementById('q').value.trim();
   const cat = document.getElementById('category').value;
   
+  // ▼▼ 変更: body も検索対象に含める＋未定義安全化 ▼▼
   const filtered = allNotes.filter(x =>
-    (q === '' || x.title.includes(q) || (x.desc && x.desc.includes(q))) &&
+    (q === '' ||
+      (x.title && x.title.includes(q)) ||
+      (x.body && x.body.includes(q)) ||
+      (x.desc && x.desc.includes(q))
+    ) &&
     (cat === '' || x.category === cat)
   );
   

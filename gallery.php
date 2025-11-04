@@ -32,7 +32,17 @@ if ($id && is_dir($targetDir)) {
   <link rel="stylesheet" href="styles.css" />
   <style>
     .gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:16px}
-    .gallery-grid img{width:100%;height:160px;object-fit:cover;border-radius:8px;border:1px solid var(--border);background:#fff}
+    .gallery-grid img{
+      width:100%;
+      height:160px;
+      /* ▼ 変更: 画像全体が収まるようにする ▼ */
+      object-fit:contain;
+      object-position:center;
+      /* ▲ ここまで ▲ */
+      border-radius:8px;
+      border:1px solid var(--border);
+      background:#fff
+    }
     .muted{color:var(--muted)}
   </style>
 </head>
