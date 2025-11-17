@@ -20,6 +20,12 @@
   </header>
 
   <main class="container">
+    <section class="view-tabs" role="tablist" aria-label="表示モード切替">
+      <button class="tab-btn active" data-filter="all" role="tab" aria-selected="true">ホーム</button>
+      <button class="tab-btn" data-filter="favorites" role="tab" aria-selected="false">お気に入り</button>
+      <button class="tab-btn" data-filter="mine" role="tab" aria-selected="false">自分の投稿</button>
+    </section>
+
     <section class="search">
       <label class="icon" for="q">🔍️</label>
       <input id="q" type="text" placeholder="キーワードを入力" />

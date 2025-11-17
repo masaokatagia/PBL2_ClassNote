@@ -1,5 +1,8 @@
 // サンプルデータはそのまま残します
 
+let currentView = 'all';
+let lastSearchResult = [];
+
 // データを読み込む非同期関数
 async function loadNotes() {
   let serverNotes = [];
@@ -58,6 +61,25 @@ function render(items) {
   }
 }
 
+function applyViewFilter(items) {
+  if (currentView === 'favorites') {
+    return items.filter(it => hasFlag(it, ['isFavorite', 'favorite', 'starred']));
+  }
+  if (currentView === 'mine') {
+    return items.filter(it => hasFlag(it, ['isMine', 'mine', 'isOwner', 'own']));
+  }
+  return items;
+}
+
+function hasFlag(item, keys) {
+  if (!item) return false;
+  return keys.some(key => Boolean(item[key]));
+}
+
+function renderWithCurrentFilters() {
+  render(applyViewFilter(lastSearchResult));
+}
+
 // 検索を実行する非同期関数
 async function search() {
   // (3) 検索時にもまず全データをロードする
@@ -76,7 +98,8 @@ async function search() {
     (cat === '' || x.category === cat)
   );
   
-  render(filtered); // フィルタリング結果を描画
+  lastSearchResult = filtered;
+  renderWithCurrentFilters();
 }
 
 // 検索ボタンとEnterキーのイベントリスナー
@@ -88,8 +111,25 @@ document.getElementById('q').addEventListener('keydown', e => {
   }
 });
 
+function setupViewTabs() {
+  const tabs = document.querySelectorAll('.tab-btn');
+  if (!tabs.length) return;
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const filter = tab.dataset.filter ?? 'all';
+      currentView = filter;
+      tabs.forEach(btn => {
+        const isActive = btn === tab;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
+      renderWithCurrentFilters();
+    });
+  });
+}
+
 // (4) ページの読み込みが完了したら、まず全データをロードして描画する
 window.addEventListener('DOMContentLoaded', async () => {
-  const allNotes = await loadNotes();
-  render(allNotes);
+  setupViewTabs();
+  await search();
 });

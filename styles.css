@@ -30,6 +30,31 @@ body{
 .btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
 
 .container{max-width:960px;margin:0 auto;padding:24px}
+.view-tabs{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:12px;
+  margin-bottom:20px;
+  border-bottom:1px solid var(--border);
+  padding-bottom:8px;
+}
+.tab-btn{
+  border:0;
+  background:transparent;
+  padding:8px 18px;
+  border-radius:999px;
+  font-weight:600;
+  color:var(--muted);
+  cursor:pointer;
+}
+.tab-btn:hover{color:var(--fg);background:rgba(37,99,235,.08)}
+.tab-btn.active{
+  background:var(--primary);
+  color:#fff;
+  box-shadow:0 2px 6px rgba(37,99,235,.35);
+}
+.tab-btn:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 .search{display:grid;grid-template-columns:auto 1fr 160px auto;gap:12px;align-items:center}
 .search .icon{font-size:20px}
 .search input, .search select{padding:10px;border:1px solid var(--border);border-radius:8px;background:#fff}
