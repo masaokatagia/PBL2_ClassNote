@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <main class="container">
     <h1>ログイン</h1>
     <?php if ($message): ?>
-      <div class="card" role="alert"><?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?></div>
+      <div class="card" role="alert" style="color:red"><?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?></div>
     <?php endif; ?>
     <form method="post" class="card" style="max-width:420px">
       <label>ログインID<input name="user" required></label>
