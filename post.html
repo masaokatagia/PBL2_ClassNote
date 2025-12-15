@@ -1,79 +1,131 @@
 <!doctype html>
 <html lang="ja">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>投稿 - Class Note</title>
   <link rel="stylesheet" href="styles.css">
+  <style>
+    .formcont {
+      margin-bottom: 16px;
+    }
+
+    .formcont label {
+      display: block;
+      margin-bottom: 6px;
+    }
+  </style>
 </head>
+
 <body>
+  <header class="header">
+    <a href="index.html">
+      <label class="btn">
+        <h1>Class Note</h1>
+      </label>
+    </a>
+    <nav class="actions">
+      <a class="btn" href="post.html">投稿</a>
+      <a class="btn" href="login.php">ログイン</a>
+    </nav>
+  </header>
   <main class="container">
     <h1>ノートを投稿</h1>
     <form id="postForm" class="card" style="max-width:640px">
-      <label>タイトル<input id="title" required></label>
-      <label>カテゴリ
-        <select id="category">
-          <option value="共通教育">共通教育</option>
-          <option value="専門応用">専門応用</option>
-        </select>
-      </label>
-      <label>本文<textarea id="body" rows="8" required></textarea></label>
+      <div class="formcont"><label>タイトル<input id="title" required></label></div>
+      <div class="formcont"><label>カテゴリ
+          <select id="category">
+            <option value="共通教育">共通教育</option>
+            <option value="専門応用">専門応用</option>
+          </select>
+        </label></div>
+      <div class="formcont"><label>本文　<textarea id="body" rows="8" cols="65" required></textarea></label></div>
 
-      <label>画像 (複数選択可)
-        <input id="images" type="file" name="images[]" multiple accept="image/*" />
-      </label>
+      <div class="formcont"><label>画像 (複数選択可)
+          <input id="images" type="file" name="images[]" multiple accept="image/*" />
+        </label>
+      </div><br>
+      <div id="preview" style="display:flex; gap:10px; flex-wrap:wrap;"></div><br>
+
       <button type="submit" class="btn primary">保存</button>
       <a class="btn" href="index.html">戻る</a>
     </form>
-    </main>
+  </main>
   <script>
-  document.getElementById('postForm').addEventListener('submit', (e) => {
-    e.preventDefault();
+    
 
-    // (1) FormDataオブジェクトを作成
-    const formData = new FormData();
+document.getElementById('images').addEventListener('change', (e) => {
+  const preview = document.getElementById('preview');
+  preview.innerHTML = ""; // 前回のプレビューをクリア
 
-    // (2) テキストデータをFormDataに追加
-    formData.append('title', document.getElementById('title').value);
-    formData.append('category', document.getElementById('category').value);
-    formData.append('body', document.getElementById('body').value);
-    formData.append('createdAt', new Date().toISOString());
+  const files = e.target.files;
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    if (!file.type.startsWith("image/")) continue; // 画像以外はスキップ
 
-    // (3) 選択された画像ファイル（複数）をFormDataに追加
-    const imageFiles = document.getElementById('images').files;
-    for (let i = 0; i < imageFiles.length; i++) {
-      // name="images[]" と合わせる (HTML側で設定済みだがJSでも明示)
-      formData.append('images[]', imageFiles[i]);
-    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = document.createElement("img");
+      img.src = ev.target.result;
+      img.style.maxWidth = "150px";
+      img.style.maxHeight = "150px";
+      img.style.objectFit = "cover";
+      preview.appendChild(img);
+    };
+    reader.readAsDataURL(file);
+  }
+});
 
-    // (4) fetch APIを使ってサーバーの 'save.php' にデータをPOSTする
-    fetch('save.php', {
-      method: 'POST',
-      // headers は FormData の場合は不要
-      body: formData 
-    })
-    .then(response => {
-      // ネットワークやサーバーのレスポンスがOKか確認
-      if (!response.ok) {
-        throw new Error('サーバーとの通信に失敗しました: ' + response.statusText);
+
+    document.getElementById('postForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      // (1) FormDataオブジェクトを作成
+      const formData = new FormData();
+
+      // (2) テキストデータをFormDataに追加
+      formData.append('title', document.getElementById('title').value);
+      formData.append('category', document.getElementById('category').value);
+      formData.append('body', document.getElementById('body').value);
+      formData.append('createdAt', new Date().toISOString());
+
+      // (3) 選択された画像ファイル（複数）をFormDataに追加
+      const imageFiles = document.getElementById('images').files;
+      for (let i = 0; i < imageFiles.length; i++) {
+        // name="images[]" と合わせる (HTML側で設定済みだがJSでも明示)
+        formData.append('images[]', imageFiles[i]);
       }
-      return response.json(); // サーバーからのJSONレスポンスを解析
-    })
-    .then(data => {
-      // (3) サーバーからの応答が 'success' だったら成功
-      if (data.status === 'success') {
-        alert(data.message || '保存しました'); // サーバーからのメッセージを表示
-        location.href = 'index.html'; // index.htmlに戻る
-      } else {
-        alert('保存に失敗しました: ' + (data.message || '不明なエラー'));
-      }
-    })
-    .catch(error => {
-      // (4) 通信エラーやその他のエラーをキャッチ
-      console.error('Error:', error);
-      alert('保存中にエラーが発生しました。\n' + error.message);
+
+      // (4) fetch APIを使ってサーバーの 'save.php' にデータをPOSTする
+      fetch('save.php', {
+        method: 'POST',
+        // headers は FormData の場合は不要
+        body: formData
+      })
+        .then(response => {
+          // ネットワークやサーバーのレスポンスがOKか確認
+          if (!response.ok) {
+            throw new Error('サーバーとの通信に失敗しました: ' + response.statusText);
+          }
+          return response.json(); // サーバーからのJSONレスポンスを解析
+        })
+        .then(data => {
+          // (3) サーバーからの応答が 'success' だったら成功
+          if (data.status === 'success') {
+            alert(data.message || '保存しました'); // サーバーからのメッセージを表示
+            location.href = 'index.html'; // index.htmlに戻る
+          } else {
+            alert('保存に失敗しました: ' + (data.message || '不明なエラー'));
+          }
+        })
+        .catch(error => {
+          // (4) 通信エラーやその他のエラーをキャッチ
+          console.error('Error:', error);
+          alert('保存中にエラーが発生しました。\n' + error.message);
+        });
     });
-  });
   </script>
 </body>
+
 </html>
