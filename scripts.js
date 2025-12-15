@@ -3,6 +3,36 @@
 let currentView = 'all';
 let lastSearchResult = [];
 
+// ▼▼ 追加: user_id Cookie と Users/<id>.json の読み込み＋キャッシュ ▼▼
+let currentUserId = null;
+let userPostIds = new Set();
+let userFavIds = new Set();
+
+function getCookie(name) {
+  const m = document.cookie.match(new RegExp('(?:^|;\\s*)' + name.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') + '=([^;]*)'));
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+async function loadUserData() {
+  currentUserId = getCookie('user_id');
+  userPostIds = new Set();
+  userFavIds = new Set();
+
+  if (!currentUserId) return; // ログインなし等は従来挙動
+
+  try {
+    const res = await fetch(`Users/${encodeURIComponent(currentUserId)}.json`, { cache: 'no-store' });
+    if (!res.ok) return;
+    const data = await res.json();
+    const posts = Array.isArray(data?.post) ? data.post : [];
+    const favs = Array.isArray(data?.fav) ? data.fav : [];
+    userPostIds = new Set(posts.map(String));
+    userFavIds = new Set(favs.map(String));
+  } catch (e) {
+    // 読めなくても落とさない（従来のフラグ判定にフォールバック）
+  }
+}
+
 // データを読み込む非同期関数
 async function loadNotes() {
   let serverNotes = [];
@@ -38,16 +68,55 @@ function render(items) {
       // リンク付きカード
       el.classList.add('clickable');
       el.dataset.id = it.id;
-      const a = document.createElement('a');
-      a.href = `gallery.php?id=${encodeURIComponent(it.id)}`;
-      a.className = 'card-link';
-      a.innerHTML = `
-        ${it.cover ? `<img class="thumb" src="${it.cover}" alt="">` : ''}
-        <h3>${it.title}</h3>
-        <p>${it.category}</p>
-        <p>${it.body ?? (it.desc ?? '')}</p>
-      `;
-      el.appendChild(a);
+      const titleRow = document.createElement('div');
+      titleRow.className = 'card-title-row';
+
+      const titleLink = document.createElement('a');
+      titleLink.href = `gallery.php?id=${encodeURIComponent(it.id)}`;
+      titleLink.className = 'title-link';
+      const title = document.createElement('h3');
+      title.textContent = it.title ?? '';
+      titleLink.appendChild(title);
+      titleRow.appendChild(titleLink);
+
+      const favBtn = document.createElement('button');
+      favBtn.type = 'button';
+      favBtn.className = 'fav-btn';
+
+      const noteIdStr = String(it.id);
+      const isFav = userFavIds && userFavIds.has(noteIdStr);
+      favBtn.classList.toggle('active', isFav);
+      favBtn.textContent = isFav ? '★' : '☆';
+      favBtn.setAttribute('aria-label', isFav ? 'お気に入り解除' : 'お気に入りに追加');
+      favBtn.addEventListener('click', async (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        await toggleFavorite(noteIdStr);
+      });
+      titleRow.appendChild(favBtn);
+
+      const link = document.createElement('a');
+      link.href = `gallery.php?id=${encodeURIComponent(it.id)}`;
+      link.className = 'card-link';
+
+      if (it.cover) {
+        const img = document.createElement('img');
+        img.className = 'thumb';
+        img.src = it.cover;
+        img.alt = '';
+        link.appendChild(img);
+      }
+
+      const pCat = document.createElement('p');
+      pCat.textContent = it.category ?? '';
+      link.appendChild(pCat);
+
+      const pBody = document.createElement('p');
+      pBody.textContent = (it.body ?? (it.desc ?? ''));
+      link.appendChild(pBody);
+
+      el.appendChild(titleRow);
+      el.appendChild(link);
     } else {
       // サンプル等（非リンク）
       el.innerHTML = `
@@ -61,11 +130,59 @@ function render(items) {
   }
 }
 
+async function toggleFavorite(noteId) {
+  if (!noteId) return;
+
+  // ログインしていない場合は従来挙動を崩さず案内だけ
+  if (!currentUserId) {
+    alert('お気に入り機能はログインが必要です');
+    return;
+  }
+
+  try {
+    const res = await fetch('toggle_favorite.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ noteId })
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.status !== 'success') {
+      throw new Error(data?.message || 'お気に入り更新に失敗しました');
+    }
+
+    // サーバーの結果に合わせてローカル状態を更新
+    const nextFav = Array.isArray(data?.fav) ? data.fav.map(String) : null;
+    if (nextFav) {
+      userFavIds = new Set(nextFav);
+    } else {
+      // 念のため
+      if (userFavIds.has(String(noteId))) userFavIds.delete(String(noteId));
+      else userFavIds.add(String(noteId));
+    }
+
+    // 現在の表示モードも含めて再描画（favoritesタブで外れる/入るを反映）
+    renderWithCurrentFilters();
+  } catch (e) {
+    alert(e?.message || 'お気に入り更新中にエラーが発生しました');
+  }
+}
+
 function applyViewFilter(items) {
   if (currentView === 'favorites') {
+    // ▼▼ 変更: Users/<user_id>.json の fav を優先して絞り込み ▼▼
+    if (userFavIds && userFavIds.size) {
+      return items.filter(it => it?.id != null && userFavIds.has(String(it.id)));
+    }
+    // フォールバック（既存データ互換）
     return items.filter(it => hasFlag(it, ['isFavorite', 'favorite', 'starred']));
   }
   if (currentView === 'mine') {
+    // ▼▼ 変更: Users/<user_id>.json の post を優先して絞り込み ▼▼
+    if (userPostIds && userPostIds.size) {
+      return items.filter(it => it?.id != null && userPostIds.has(String(it.id)));
+    }
+    // フォールバック（既存データ互換）
     return items.filter(it => hasFlag(it, ['isMine', 'mine', 'isOwner', 'own']));
   }
   return items;
@@ -84,6 +201,9 @@ function renderWithCurrentFilters() {
 async function search() {
   // (3) 検索時にもまず全データをロードする
   const allNotes = await loadNotes();
+
+  // ▼▼ 追加: ユーザー情報を読み込んでタブ絞り込みに反映 ▼▼
+  await loadUserData();
 
   const q = document.getElementById('q').value.trim();
   const cat = document.getElementById('category').value;

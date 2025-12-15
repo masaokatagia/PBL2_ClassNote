@@ -1,17 +1,49 @@
 <?php
 session_start();
 
-// �ȈՃ��O�C���f���i���^�p�ł̓p�X���[�h���n�b�V�������ADB�����g�p���Ă��������j
+// 簡易ログインデモ（本番ではパスワードのハッシュ化やDB利用を推奨）
 $message = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = $_POST['user'] ?? '';
     $pass = $_POST['pass'] ?? '';
-    if ($user === 'demo' && $pass === 'pass') {
-        $_SESSION['user'] = $user;
-        header('Location: /web/index.html');
+
+  // Users/<user>.json を参照して認証（構成: { passwd: "...", post: [], fav: [] }）
+  $safeUser = preg_replace('/[^a-zA-Z0-9_-]/', '', (string)$user);
+  if ($safeUser === '') {
+    $message = 'ログインIDが不正です';
+  } else {
+    $userFile = __DIR__ . DIRECTORY_SEPARATOR . 'Users' . DIRECTORY_SEPARATOR . $safeUser . '.json';
+    if (!file_exists($userFile)) {
+      $message = 'ユーザーが存在しません';
+    } else {
+      $json = file_get_contents($userFile);
+      if ($json === false) {
+        $message = 'ユーザーファイルを読み取れません（権限/パスを確認してください）';
+      } else {
+        $data = json_decode($json, true);
+        if (!is_array($data)) {
+          $err = function_exists('json_last_error_msg') ? json_last_error_msg() : 'JSONの形式が不正です';
+          $message = 'ユーザーファイルのJSON形式が不正です: ' . $err;
+        } else {
+          $stored = array_key_exists('passwd', $data) ? (string)$data['passwd'] : null;
+
+          if ($stored !== null && hash_equals($stored, (string)$pass)) {
+        $_SESSION['user'] = $safeUser;
+        // フロント側(scripts.js)が参照する user_id cookie をセット
+        setcookie('user_id', $safeUser, [
+          'expires' => time() + 60 * 60 * 24 * 30,
+          'path' => '/',
+          'samesite' => 'Lax'
+        ]);
+
+        header('Location: index.html');
         exit;
+          }
+          $message = 'ログインIDまたはパスワードが違います';
+        }
+      }
     }
-    $message = 'ログインIDまたはパスワードが違います;
+  }
 }
 ?>
 <!doctype html>
@@ -30,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php endif; ?>
     <form method="post" class="card" style="max-width:420px">
       <label>ログインID<input name="user" required></label>
-      <label>パスワードh<input type="password" name="pass" required></label>
+      <label>パスワード<input type="password" name="pass" required></label>
       <button class="btn primary" type="submit">ログイン</button>
       <a class="btn" href="index.html">戻る</a>
     </form>
