@@ -79,8 +79,6 @@ body{
   padding:16px 16px 8px;
 }
 .card-title-row h3{margin:0;font-size:18px}
-.title-link{color:inherit;text-decoration:none;flex:1;min-width:0}
-.title-link:hover{text-decoration:underline}
 .fav-btn{
   appearance:none;
   border:1px solid var(--border);
