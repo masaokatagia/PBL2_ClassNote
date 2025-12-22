@@ -36,8 +36,12 @@
       <div class="formcont"><label>タイトル<input id="title" required></label></div>
       <div class="formcont"><label>カテゴリ
           <select id="category">
-            <option value="共通教育">共通教育</option>
-            <option value="専門応用">専門応用</option>
+        <option value="共通教育">共通教育</option>
+        <option value="基礎科目">基礎科目</option>
+        <option value="工学共通基礎科目">工学共通基礎科目</option>
+        <option value="専門入門">専門入門</option>
+        <option value="専門基礎">専門基礎</option>
+        <option value="専門応用">専門応用</option>            
           </select>
         </label></div>
       <div class="formcont"><label>本文　<textarea id="body" rows="8" cols="65" required></textarea></label></div>
@@ -45,8 +49,8 @@
       <div class="formcont"><label>画像 (複数選択可)
           <input id="images" type="file" name="images[]" multiple accept="image/*" />
         </label>
-      </div><br>
-      <div id="preview" style="display:flex; gap:10px; flex-wrap:wrap;"></div><br>
+      </div>
+      <div id="preview" style="display:flex; gap:10px; flex-wrap:wrap;"></div>
 
       <button type="submit" class="btn primary">保存</button>
       <a class="btn" href="index.html">戻る</a>
@@ -68,8 +72,8 @@ document.getElementById('images').addEventListener('change', (e) => {
     reader.onload = (ev) => {
       const img = document.createElement("img");
       img.src = ev.target.result;
-      img.style.maxWidth = "150px";
-      img.style.maxHeight = "150px";
+      img.style.maxWidth = "250px";
+      img.style.maxHeight = "250px";
       img.style.objectFit = "cover";
       preview.appendChild(img);
     };
