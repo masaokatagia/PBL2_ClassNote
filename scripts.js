@@ -70,14 +70,9 @@ function render(items) {
       el.dataset.id = it.id;
       const titleRow = document.createElement('div');
       titleRow.className = 'card-title-row';
-
-      const titleLink = document.createElement('a');
-      titleLink.href = `gallery.php?id=${encodeURIComponent(it.id)}`;
-      titleLink.className = 'title-link';
       const title = document.createElement('h3');
       title.textContent = it.title ?? '';
-      titleLink.appendChild(title);
-      titleRow.appendChild(titleLink);
+      titleRow.appendChild(title);
 
       const favBtn = document.createElement('button');
       favBtn.type = 'button';
