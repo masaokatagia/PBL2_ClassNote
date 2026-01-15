@@ -1,16 +1,20 @@
 <?php
-// gallery.php?id={id}
-
 function sanitize_id($id) {
-    // フォルダ名として安全な文字だけ許可（英数とハイフン/アンダースコア）
-    $id = preg_replace('/[^a-zA-Z0-9_-]/', '', $id ?? '');
-    return $id;
+    return preg_replace('/[^a-zA-Z0-9_-]/', '', $id ?? '');
 }
 
 $id = isset($_GET['id']) ? sanitize_id($_GET['id']) : '';
-$baseDir = __DIR__ . DIRECTORY_SEPARATOR . 'Resources';
-$targetDir = $baseDir . DIRECTORY_SEPARATOR . $id;
+$baseDir = __DIR__ . '/Resources';
+$targetDir = $baseDir . '/' . $id;
 
+// notes.json 読み込み
+$notes = json_decode(file_get_contents(__DIR__ . '/notes.json'), true);
+$note = null;
+foreach ($notes as $n) {
+    if ($n['id'] === $id) { $note = $n; break; }
+}
+
+// 画像一覧
 $images = [];
 if ($id && is_dir($targetDir)) {
     $allowed = ['jpg','jpeg','png','gif','webp','bmp','svg'];
@@ -18,59 +22,185 @@ if ($id && is_dir($targetDir)) {
         if ($file === '.' || $file === '..') continue;
         $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
         if (in_array($ext, $allowed, true)) {
-            $images[] = 'Resources/' . rawurlencode($id) . '/' . rawurlencode($file);
+            $images[] = "Resources/" . rawurlencode($id) . "/" . rawurlencode($file);
         }
     }
 }
+
+// ユーザー情報
+$userId = $_COOKIE['user_id'] ?? null;
+$userFav = [];
+$userPost = [];
+
+if ($userId && file_exists(__DIR__ . "/Users/$userId.json")) {
+    $u = json_decode(file_get_contents(__DIR__ . "/Users/$userId.json"), true);
+    $userFav = $u['fav'] ?? [];
+    $userPost = $u['post'] ?? [];
+}
+
+$isFav = in_array($id, $userFav);
+$isMine = in_array($id, $userPost);
 ?>
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ギャラリー - Class Note</title>
-  <link rel="stylesheet" href="styles.css" />
-  <style>
-    .gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:16px}
-    .gallery-grid img{
-      width:100%;
-      height:160px;
-      /* ▼ 変更: 画像全体が収まるようにする ▼ */
-      object-fit:contain;
-      object-position:center;
-      /* ▲ ここまで ▲ */
-      border-radius:8px;
-      border:1px solid var(--border);
-      background:#fff
-    }
-    .muted{color:var(--muted)}
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><?= htmlspecialchars($note['title'] ?? '投稿詳細') ?> - Class Note</title>
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.gallery-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.gallery-grid img {
+  width: 200px;
+  height: 200px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  cursor: zoom-in;
+  background: #fff;
+}
+
+/* Lightbox */
+#lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+#lightbox img {
+  max-width: 90%;
+  max-height: 90%;
+  border-radius: 8px;
+}
+.fav-btn.active {
+  background: #fff;            /* 背景は白のまま */
+  color: var(--primary);       /* 星を青く塗りつぶす（★） */
+  border-color: var(--primary);/* 枠線も青 */
+}
+</style>
 </head>
+
 <body>
-  <header class="header">
-    <h1>ギャラリー</h1>
-    <nav class="actions">
-      <a class="btn" href="index.html">戻る</a>
-    </nav>
-  </header>
-  <main class="container">
-    <?php if (!$id): ?>
-      <p class="muted">IDが指定されていません。</p>
-    <?php elseif (!is_dir($targetDir)): ?>
-      <p class="muted">Resources/<?php echo htmlspecialchars($id, ENT_QUOTES, 'UTF-8'); ?> は存在しません。</p>
-    <?php elseif (empty($images)): ?>
-      <p class="muted">画像がありません。</p>
-    <?php else: ?>
-      <h2>Resources/<?php echo htmlspecialchars($id, ENT_QUOTES, 'UTF-8'); ?></h2>
-      <section class="gallery-grid">
-        <?php foreach ($images as $src): ?>
-          <img src="<?php echo $src; ?>" alt="image" loading="lazy" />
-        <?php endforeach; ?>
-      </section>
-    <?php endif; ?>
-  </main>
-  <footer class="footer">
-    <small>&copy; 2025 Class Note</small>
-  </footer>
+<header class="header">
+  <a href="index.html"><label class="btn"><h1>Class Note</h1></label></a>
+  <nav class="actions">
+    <a class="btn" href="post.html">投稿</a>
+    <a class="btn" href="login.php">ログイン</a>
+  </nav>
+</header>
+
+<main class="container">
+
+<div class="card" style="max-width:800px; margin:auto;">
+
+<?php if (!$note): ?>
+  <p>投稿が見つかりません。</p>
+
+<?php else: ?>
+
+<div class="card-title-row">
+  <h2 style="margin:0;"><?= htmlspecialchars($note['title']) ?></h2>
+
+  <?php if ($userId): ?>
+    <button id="favBtn" class="fav-btn <?= $isFav ? 'active' : '' ?>" data-id="<?= htmlspecialchars($id) ?>">
+      <?= $isFav ? '★' : '☆' ?>
+    </button>
+  <?php endif; ?>
+</div>
+
+<p><strong>カテゴリ:</strong> <?= htmlspecialchars($note['category']) ?></p>
+<p><strong>投稿日:</strong> <?= htmlspecialchars($note['createdAt']) ?></p>
+
+<?php if ($isMine): ?>
+  <button class="btn danger" id="deleteBtn">削除</button>
+<?php endif; ?>
+
+<hr>
+
+<p><?= nl2br(htmlspecialchars($note['body'])) ?></p>
+
+<hr>
+
+<h3>画像</h3>
+
+  <?php if (empty($images)): ?>
+    <p>画像はありません。</p>
+  <?php else: ?>
+    <div class="gallery-grid">
+      <?php foreach ($images as $src): ?>
+        <img src="<?= $src ?>" data-src="<?= $src ?>" class="zoom-img">
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+
+<?php endif; ?>
+<br>
+<a class="btn" href="index.html">戻る</a>
+</div>
+
+</main>
+
+<!-- Lightbox -->
+<div id="lightbox">
+  <img id="lightboxImg" src="">
+</div>
+
+<script>
+// Lightbox
+document.querySelectorAll('.zoom-img').forEach(img => {
+  img.addEventListener('click', () => {
+    document.getElementById('lightboxImg').src = img.dataset.src;
+    document.getElementById('lightbox').style.display = 'flex';
+  });
+});
+document.getElementById('lightbox').addEventListener('click', () => {
+  document.getElementById('lightbox').style.display = 'none';
+});
+
+// お気に入り
+const favBtn = document.getElementById('favBtn');
+if (favBtn) {
+  favBtn.addEventListener('click', async () => {
+    const id = favBtn.dataset.id;
+    const res = await fetch('toggle_favorite.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ noteId: id })
+    });
+    const data = await res.json();
+if (data.status === 'success') {
+  favBtn.textContent = data.isFav ? '★' : '☆';
+  favBtn.classList.toggle('active', data.isFav);  // ← これが必要！
+}
+  });
+}
+
+// 削除
+const delBtn = document.getElementById('deleteBtn');
+if (delBtn) {
+  delBtn.addEventListener('click', async () => {
+    if (!confirm('本当に削除しますか？')) return;
+    const res = await fetch('delete_note.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: "<?= $id ?>" })
+    });
+    const data = await res.json();
+    if (data.status === 'success') {
+      alert('削除しました');
+      location.href = 'index.html';
+    }
+  });
+}
+</script>
+
 </body>
 </html>

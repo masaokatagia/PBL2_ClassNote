@@ -90,9 +90,9 @@ body{
   cursor:pointer;
 }
 .fav-btn:hover{color:var(--fg)}
-.fav-btn.active{
-  border-color:var(--primary);
-  color:var(--primary);
+.fav-btn.active {
+  color: var(--primary);
+  border-color: var(--primary);
 }
 .fav-btn:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 
