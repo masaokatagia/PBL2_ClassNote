@@ -85,5 +85,6 @@ echo json_encode([
     'status' => 'success',
     'message' => 'お気に入りを更新しました',
     'userId' => $userId,
-    'fav' => $data['fav']
+    'fav' => $data['fav'],
+    'isFav' => in_array($noteIdStr, $data['fav'], true) // ← これが必要！
 ], JSON_UNESCAPED_UNICODE);

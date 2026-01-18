@@ -1,6 +1,36 @@
 <?php
 session_start();
 
+// user_id Cookie があり対象ユーザーが存在する場合は自動ログイン
+function attemptCookieLogin(): void {
+  if (!empty($_SESSION['user'])) {
+    return;
+  }
+
+  $rawCookie = $_COOKIE['user_id'] ?? '';
+  $safeCookieUser = preg_replace('/[^a-zA-Z0-9_-]/', '', (string)$rawCookie);
+  if ($safeCookieUser === '') {
+    return;
+  }
+
+  $candidateFile = __DIR__ . DIRECTORY_SEPARATOR . 'Users' . DIRECTORY_SEPARATOR . $safeCookieUser . '.json';
+  if (!file_exists($candidateFile)) {
+    // 不正Cookieは破棄（有効期限を過去へ）
+    setcookie('user_id', '', [
+      'expires' => time() - 3600,
+      'path' => '/',
+      'samesite' => 'Lax'
+    ]);
+    return;
+  }
+
+  $_SESSION['user'] = $safeCookieUser;
+  header('Location: index.html');
+  exit;
+}
+
+attemptCookieLogin();
+
 // 簡易ログインデモ（本番ではパスワードのハッシュ化やDB利用を推奨）
 $message = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

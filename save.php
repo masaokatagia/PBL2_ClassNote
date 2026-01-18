@@ -78,6 +78,24 @@ if ($bytesWritten === false) {
     exit; // これ以降の画像処理は実行しない
 }
 // ▲▲▲ [変更] ここまで ▲▲▲
+$user_id = $_COOKIE['user_id'] ?? null;
+if ($user_id) {
+    $userFile = __DIR__ . "/Users/{$user_id}.json";
+    $userData = [];
+
+    if (file_exists($userFile)) {
+        $userData = json_decode(file_get_contents($userFile), true);
+    }
+    if (!is_array($userData)) {
+        $userData = ["passwd" => "", "post" => [], "fav" => []];
+    }
+
+    // 新しい投稿IDをユーザーのpost配列に追加
+    $userData['post'][] = $newNoteId;
+
+    file_put_contents($userFile, json_encode($userData, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+}
+
 
 
 // (5) [新機能] 画像アップロード処理
